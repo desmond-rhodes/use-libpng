@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <stdexcept>
 
 int display(std::vector<std::string> const&);
 

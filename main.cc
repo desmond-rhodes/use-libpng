@@ -14,11 +14,12 @@ int main(int argc, char* argv[]) {
 		return display(args);
 	}
 	catch (exception const& e) {
+		cerr << "An uncaught exception was encountered.\n";
 		cerr << e.what() << '\n';
 		return -1;
 	}
 	catch (...) {
-		cerr << "Uncaught exception of unknown type was encountered.\n";
+		cerr << "An uncaught exception of unknown type was encountered.\n";
 		return -1;
 	}
 }
