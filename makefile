@@ -29,13 +29,6 @@ $(OBJS): | .setup
 
 %.o: %.cc
 	$(COMPILE.cc) $(DEPFLAGS) $(OUTPUT_OPTION) $<
-
-.PHONY: clean
-clean:
-	rm -f $(DEPS) $(OBJS) $(OUT)
-
-include $(wildcard $(DEPS))
-
 .setup: | glfw gl3w zlib libpng
 	cd gl3w && python3 gl3w_gen.py
 	make gl3w/src/gl3w.o --no-print-directory
@@ -50,10 +43,15 @@ include $(wildcard $(DEPS))
 	touch libpng/pnglibconf.dfn
 	cp libpng/scripts/pnglibconf.h.prebuilt libpng/pnglibconf.h
 	make -C libpng libpng.a --no-print-directory
-	mkdir -p include include/GLFW include/GL include/KHR lib
 	touch .setup
 
-.PHONY: clean-setup
-clean-setup: clean
+.PHONY: clean
+clean:
+	rm -f $(DEPS) $(OBJS) $(OUT)
+
+.PHONY: reset-setup
+reset-setup:
 	git submodule foreach --recursive git clean -ffdx
 	rm -f .setup
+
+include $(wildcard $(DEPS))

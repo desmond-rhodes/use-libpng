@@ -1,7 +1,7 @@
-#include <exception>
 #include <iostream>
 #include <vector>
 #include <string>
+#include <exception>
 #include "display.hh"
 
 using namespace std;
