@@ -30,9 +30,7 @@ $(OBJS): | .setup
 
 .PHONY: clean
 clean:
-	rm -f *.d
-	rm -f *.o
-	rm -f $(OUT)
+	rm -f *.d *.o $(OUT)
 
 include $(wildcard $(DEPS))
 
@@ -40,11 +38,7 @@ include $(wildcard $(DEPS))
 	cd gl3w && python3 gl3w_gen.py
 	cmake -S glfw -B glfw/build -D CMAKE_TOOLCHAIN_FILE=CMake/x86_64-w64-mingw32.cmake
 	make -C glfw/build glfw --no-print-directory
-	mkdir -p include
-	mkdir -p include/GLFW
-	mkdir -p include/GL
-	mkdir -p include/KHR
-	mkdir -p lib
+	mkdir -p include include/GLFW include/GL include/KHR lib
 	ln -sf ../../glfw/include/GLFW/glfw3.h include/GLFW/glfw3.h
 	ln -sf ../../gl3w/include/GL/gl3w.h include/GL/gl3w.h
 	ln -sf ../../gl3w/include/GL/glcorearb.h include/GL/glcorearb.h
@@ -52,3 +46,9 @@ include $(wildcard $(DEPS))
 	ln -sf ../glfw/build/src/libglfw3.a lib/libglfw3.a
 	ln -sf ../gl3w/src/gl3w.c lib/gl3w.c
 	touch .setup
+
+.PHONY: reset-everything
+reset-everything:
+	rm -rf include lib glfw/build gl3w/include
+	rm -f gl3w/src/gl3w.c
+	rm -f $(DEPS) $(OBJS) $(OUT) .setup
