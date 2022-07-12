@@ -10,6 +10,13 @@ using namespace std;
 GLuint shader_create(vector<GLenum> const&, vector<string> const&);
 
 int display(vector<string> const&) {
+	cout
+		<< png_get_copyright(nullptr) << '\n'
+		<< " library (" << static_cast<unsigned long long>(png_access_version_number()) << "):" << png_get_header_version(nullptr)
+		<< " build   (" << static_cast<unsigned long long>(PNG_LIBPNG_VER) << "):" << PNG_HEADER_VERSION_STRING << '\n'
+		<< "Compiled with libpng " << PNG_LIBPNG_VER_STRING  << "; using libpng " << png_libpng_ver << ".\n"
+		<< "Compiled with zlib " << ZLIB_VERSION << "; using zlib " << zlib_version << ".\n\n";
+
 	struct glfwHandle {
 		glfwHandle() {
 			if (!glfwInit())

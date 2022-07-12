@@ -1,7 +1,5 @@
 *.swp
 .setup
-include
-lib
 *.d
 *.o
 display.exe

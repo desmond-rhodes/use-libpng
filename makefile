@@ -1,5 +1,5 @@
 OUT := display.exe
-OBJS := main.o display.o lib/gl3w.o
+OBJS := main.o display.o
 DEPS := $(OBJS:%.o=%.d)
 
 CC := x86_64-w64-mingw32-gcc-posix
@@ -13,9 +13,11 @@ CPPFLAGS := -Iinclude
 TARGET_ARCH := -Og
 
 LDFLAGS := -Llib
-LDLIBS := -lglfw3 -lz -lpng -lgdi32 -static-libgcc -static-libstdc++ -static -lpthread
+LDLIBS := -lglfw3 -lgl3w -lpng -lz -lgdi32 -static-libgcc -static-libstdc++ -static -lpthread
 
 DEPFLAGS = -MT $@ -MMD -MP -MF $*.d
+
+AR_RC := x86_64-w64-mingw32-ar rc
 
 $(OUT): $(OBJS)
 	$(LINK.cc) $^ $(LOADLIBES) $(LDLIBS) -o $@
@@ -30,42 +32,28 @@ $(OBJS): | .setup
 
 .PHONY: clean
 clean:
-	rm -f *.d *.o $(OUT)
+	rm -f $(DEPS) $(OBJS) $(OUT)
 
 include $(wildcard $(DEPS))
 
-.setup: glfw gl3w zlib libpng
+.setup: | glfw gl3w zlib libpng
 	cd gl3w && python3 gl3w_gen.py
+	make gl3w/src/gl3w.o --no-print-directory
+	$(AR_RC) gl3w/src/libgl3w.a gl3w/src/gl3w.o
 	cmake -S glfw -B glfw/build -D CMAKE_TOOLCHAIN_FILE=CMake/x86_64-w64-mingw32.cmake
 	make -C glfw/build glfw --no-print-directory
 	cd zlib && ./configure --static
+	sed -i 's`CC=.*`CC=x86_64-w64-mingw32-gcc`; s`AR=.*`AR=x86_64-w64-mingw32-ar`; s`RANLIB=.*`RANLIB=x86_64-w64-mingw32-ranlib`' zlib/Makefile
 	make -C zlib libz.a --no-print-directory
-	touch libpng/pnglibconf.dfn
 	cp libpng/scripts/makefile.std libpng/makefile
+	sed -i 's`CC = .*`CC = x86_64-w64-mingw32-gcc`; s`AR_RC = .*`AR_RC = x86_64-w64-mingw32-ar rc`; s`RANLIB = .*`RANLIB = x86_64-w64-mingw32-ranlib`' libpng/makefile
+	touch libpng/pnglibconf.dfn
 	cp libpng/scripts/pnglibconf.h.prebuilt libpng/pnglibconf.h
 	make -C libpng libpng.a --no-print-directory
 	mkdir -p include include/GLFW include/GL include/KHR lib
-	ln -sf ../../glfw/include/GLFW/glfw3.h include/GLFW/glfw3.h
-	ln -sf ../../gl3w/include/GL/gl3w.h include/GL/gl3w.h
-	ln -sf ../../gl3w/include/GL/glcorearb.h include/GL/glcorearb.h
-	ln -sf ../../gl3w/include/KHR/khrplatform.h include/KHR/khrplatform.h
-	ln -sf ../zlib/zlib.h include/zlib.h
-	ln -sf ../zlib/zconf.h include/zconf.h
-	ln -sf ../libpng/png.h include/png.h
-	ln -sf ../libpng/pnglibconf.h include/pnglibconf.h
-	ln -sf ../libpng/pngconf.h include/pngconf.h
-	ln -sf ../glfw/build/src/libglfw3.a lib/libglfw3.a
-	ln -sf ../gl3w/src/gl3w.c lib/gl3w.c
-	ln -sf ../zlib/libz.a lib/libz.a
-	ln -sf ../libpng/libpng.a lib/libpng.a
 	touch .setup
 
-.PHONY: reset-everything
-reset-everything:
-	-make -C zlib clean --no-print-directory
-	cd zlib && git reset --hard && git clean --force
-	-make -C libpng clean --no-print-directory
-	cd libpng && git reset --hard && git clean --force
-	rm -rf include lib glfw/build gl3w/include
-	rm -f gl3w/src/gl3w.c
-	rm -f $(DEPS) $(OBJS) $(OUT) .setup
+.PHONY: clean-setup
+clean-setup: clean
+	git submodule foreach --recursive git clean -ffdx
+	rm -f .setup
