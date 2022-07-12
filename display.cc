@@ -2,6 +2,8 @@
 #include <iostream>
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
+#include <png.h>
+#include <zlib.h>
 
 using namespace std;
 
