@@ -37,6 +37,10 @@ int display(vector<string> const&) {
 	if (!window)
 		return -1;
 
+	glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height){
+		glViewport(0, 0, width, height);
+	});
+
 	glfwMakeContextCurrent(window);
 
 	if (gl3wInit())
