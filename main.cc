@@ -2,9 +2,17 @@
 
 class cleanup {
 public:
-	void disable() { r = false; }
 	cleanup(std::function<void()> x) : f {x} {}
-	~cleanup() { if (r) f(); }
+	~cleanup() { f(); }
+private:
+	std::function<void()> f;
+};
+
+class optional_cleanup {
+public:
+	void disable() { r = false; }
+	optional_cleanup(std::function<void()> x) : f {x} {}
+	~optional_cleanup() { if (r) f(); }
 private:
 	bool r {true};
 	std::function<void()> f;
@@ -152,7 +160,7 @@ GLuint shader_create(size_t n, GLenum const type[], char const* const src[]) {
 	auto const pro {glCreateProgram()};
 	if (!pro)
 		return 0;
-	cleanup c_pro {[&]{ glDeleteProgram(pro); }};
+	optional_cleanup c_pro {[&]{ glDeleteProgram(pro); }};
 	auto det {new GLuint[n]};
 	cleanup c_det {[&]{ delete[] det; }};
 	for (size_t i {0}; i < n; ++i) {
