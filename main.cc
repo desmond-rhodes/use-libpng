@@ -1,3 +1,15 @@
+#include <functional>
+
+class cleanup {
+public:
+	void disable() { r = false; }
+	cleanup(std::function<void()> x) : f {x} {}
+	~cleanup() { if (r) f(); }
+private:
+	bool r {true};
+	std::function<void()> f;
+};
+
 #include <iostream>
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
@@ -15,16 +27,13 @@ int main() {
 
 	if (!glfwInit())
 		return -1;
-	struct glfwTerminate_t {
-		~glfwTerminate_t() { glfwTerminate(); }
-	} glfwTerminate_h;
+	cleanup c_glfw {[&]{ glfwTerminate(); }};
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	GLFWwindow* window = glfwCreateWindow(1280, 960, "Hello World", nullptr, nullptr);
-
 	if (!window)
 		return -1;
 
@@ -140,34 +149,17 @@ int main() {
 GLuint shader_create(size_t n, GLenum const type[], char const* const src[]) {
 	GLint status;
 	GLint length;
-
 	auto const pro {glCreateProgram()};
 	if (!pro)
 		return 0;
-	struct programDelete_t {
-		bool r {true}; void cancel() { r = false; }
-		GLuint pro;
-		programDelete_t(GLuint p) : pro {p} {}
-		~programDelete_t() { if (r) glDeleteProgram(pro); }
-	} programDelete_h(pro);
-
-	auto detach {new GLuint[n]};
-	struct detachDelete_t {
-		GLuint* detach;
-		detachDelete_t(GLuint* d) : detach {d} {}
-		~detachDelete_t() { delete[] detach; }
-	} detachDelete_h(detach);
-
+	cleanup c_pro {[&]{ glDeleteProgram(pro); }};
+	auto det {new GLuint[n]};
+	cleanup c_det {[&]{ delete[] det; }};
 	for (size_t i {0}; i < n; ++i) {
 		auto const obj {glCreateShader(type[i])};
 		if (!obj)
 			return 0;
-		struct objectDelete_t {
-			GLuint obj;
-			objectDelete_t(GLuint o) : obj {o} {}
-			~objectDelete_t() { glDeleteShader(obj); }
-		} objectDelete_h(obj);
-
+		cleanup c_obj {[&]{ glDeleteShader(obj); }};
 		glShaderSource(obj, 1, src+i, nullptr);
 		glCompileShader(obj);
 		glGetShaderiv(obj, GL_COMPILE_STATUS, &status);
@@ -180,9 +172,8 @@ GLuint shader_create(size_t n, GLenum const type[], char const* const src[]) {
 			return 0;
 		}
 		glAttachShader(pro, obj);
-		detach[i] = obj;
+		det[i] = obj;
 	}
-
 	glLinkProgram(pro);
 	glGetProgramiv(pro, GL_LINK_STATUS, &status);
 	if (status == GL_FALSE) {
@@ -194,8 +185,7 @@ GLuint shader_create(size_t n, GLenum const type[], char const* const src[]) {
 		return 0;
 	}
 	for (size_t i {0}; i < n; ++i)
-		glDetachShader(pro, detach[i]);
-
-	programDelete_h.cancel();
+		glDetachShader(pro, det[i]);
+	c_pro.disable();
 	return pro;
 }
