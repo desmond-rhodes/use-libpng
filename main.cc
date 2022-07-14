@@ -23,6 +23,7 @@ private:
 #include <GLFW/glfw3.h>
 #include <png.h>
 #include <zlib.h>
+#include <cstdio>
 
 GLuint shader_create(size_t, GLenum const[], char const* const[]);
 
@@ -32,6 +33,97 @@ int main() {
 
 	std::cout << "Compiled with libpng " << PNG_LIBPNG_VER_STRING  << "; using libpng " << png_libpng_ver << ".\n";
 	std::cout << "Compiled with zlib " << ZLIB_VERSION << "; using zlib " << zlib_version << ".\n";
+
+	png_uint_32 width;
+	png_uint_32 height;
+	unsigned char* image_data;
+	{
+		std::cout << "Reading image... " << std::flush;
+
+		FILE* file {fopen("brick-wall.png", "rb+")};
+		if (!file)
+			return -1;
+		cleanup c_file {[&]{ fclose(file); }};
+
+		unsigned char sig[8];
+		fread(sig, 1, 8, file);
+		if (!png_check_sig(sig, 8))
+			return -1;
+
+		png_structp png_ptr {png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr)};
+		if (!png_ptr)
+			return -1;
+
+		png_infop info_ptr {png_create_info_struct(png_ptr)};
+		if (!info_ptr) {
+			png_destroy_read_struct(&png_ptr, nullptr, nullptr);
+			return -1;
+		}
+
+		cleanup c_png {[&]{ png_destroy_read_struct(&png_ptr, &info_ptr, nullptr); }};
+
+		if (setjmp(png_jmpbuf(png_ptr)))
+			return -1;
+
+		png_init_io(png_ptr, file);
+		png_set_sig_bytes(png_ptr, 8);
+		png_read_info(png_ptr, info_ptr);
+
+		int bit_depth;
+		int color_type;
+
+		png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, nullptr, nullptr, nullptr);
+
+		double const LUT_exponent {1.0};
+		double const CRT_exponent {2.2};
+		double const default_display_exponent {LUT_exponent * CRT_exponent};
+
+		double const display_exponent {default_display_exponent};
+
+		if (setjmp(png_jmpbuf(png_ptr)))
+			return -1;
+
+		if (color_type == PNG_COLOR_TYPE_PALETTE)
+			png_set_expand(png_ptr);
+		if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+			png_set_expand(png_ptr);
+		if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+			png_set_expand(png_ptr);
+
+		if (bit_depth == 16)
+			png_set_strip_16(png_ptr);
+		if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+			png_set_gray_to_rgb(png_ptr);
+
+		if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_GRAY)
+			png_set_add_alpha(png_ptr, 0xff, PNG_FILLER_BEFORE);
+
+		double gamma;
+		if (png_get_gAMA(png_ptr, info_ptr, &gamma))
+			png_set_gamma(png_ptr, display_exponent, gamma);
+
+		png_read_update_info(png_ptr, info_ptr);
+
+		png_uint_32 rowbytes {static_cast<png_uint_32>(png_get_rowbytes(png_ptr, info_ptr))};
+		int channels {static_cast<int>(png_get_channels(png_ptr, info_ptr))};
+
+		auto row_pointers {new png_bytep[height]};
+		if (!row_pointers)
+			return -1;
+		cleanup c_row_pointers {[&]{ delete[] row_pointers; }};
+
+		image_data = new unsigned char[rowbytes*height];
+		if (!image_data)
+			return -1;
+
+		for (size_t i {0}; i < height; ++i)
+			row_pointers[i] = image_data + i * rowbytes;
+
+		png_read_image(png_ptr, row_pointers);
+
+		std::cout << "done.\n" << std::flush;
+		std::cout << "Available channels " << channels << '\n';
+	}
 
 	if (!glfwInit())
 		return -1;
@@ -63,20 +155,10 @@ int main() {
 	GLuint vbo;
 	GLuint ebo;
 	{
-		GLuint const image[] {
-			0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000,
-			0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff,
-			0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000,
-			0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff,
-			0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000,
-			0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff,
-			0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000,
-			0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff, 0xff000000, 0xffffffff
-		};
-
 		glCreateTextures(GL_TEXTURE_2D, 1, &tex);
-		glTextureStorage2D(tex, 1, GL_RGBA8, 8, 8);
-		glTextureSubImage2D(tex, 0, 0, 0, 8, 8, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
+		glTextureStorage2D(tex, 1, GL_RGBA8, width, height);
+		// glTextureSubImage2D(tex, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, image_data);
+		glTextureSubImage2D(tex, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8, image_data);
 
 		glCreateSamplers(1, &sam);
 		glSamplerParameteri(sam, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
