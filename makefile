@@ -26,6 +26,7 @@ $(OBJS): | .setup
 	cd gl3w && python3 gl3w_gen.py
 	make gl3w/src/gl3w.o --no-print-directory
 	$(AR) rc gl3w/src/libgl3w.a gl3w/src/gl3w.o
+	$(RANLIB) gl3w/src/libgl3w.a
 	cmake -S glfw -B glfw/build -D CMAKE_TOOLCHAIN_FILE=CMake/x86_64-w64-mingw32.cmake
 	make -C glfw/build glfw --no-print-directory
 	cd zlib && ./configure --static
@@ -40,7 +41,7 @@ $(OBJS): | .setup
 
 .PHONY: clean
 clean:
-	rm -f $(DEPS) $(OBJS) $(OUT)
+	rm -f $(OBJS) $(OUT)
 
 .PHONY: reset-setup
 reset-setup:

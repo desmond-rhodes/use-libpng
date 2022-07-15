@@ -1,5 +1,4 @@
 *.swp
 .setup
-*.d
 *.o
 display
